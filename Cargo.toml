@@ -1,0 +1,8 @@
+[package]
+name = "rust-lsp-example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lsp-server = "0.7.8"
+lsp-types = "0.97.0"
