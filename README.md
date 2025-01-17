@@ -1,6 +1,6 @@
 # Rust lsp example
 
-Examplary lsp implementation for a small lisp like language:
+Exemplary lsp implementation for a small lisp like language.
 
 ```lisp
 ;; atoms
