@@ -139,10 +139,6 @@ impl<'lexer> Lexer<'_> {
         self.pos += 1;
     }
 
-    fn is_eof(&self) -> bool {
-        self.pos >= self.input.len()
-    }
-
     fn cur(&self) -> Option<char> {
         self.input.get(self.pos).map(|u| *u as char)
     }
