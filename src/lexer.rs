@@ -73,6 +73,7 @@ impl<'lexer> Lexer<'_> {
                 {
                     self.advance();
                 }
+
                 let bytes = self.input.get(start..self.pos).unwrap_or_default().to_vec();
                 let string = String::from_utf8(bytes).map_err(|err| {
                     self.create_error(format!("Failed to create string: {err}"), start)
@@ -89,7 +90,7 @@ impl<'lexer> Lexer<'_> {
                     token_type: TokenType::Number(number),
                     line: self.line,
                     start,
-                    end: self.pos - 1,
+                    end: self.pos,
                 })
             }
             // strings ofc ofc
