@@ -3,12 +3,12 @@ use crate::error::LspError;
 #[derive(Debug)]
 pub struct Token {
     pub token_type: TokenType,
-    line: usize,
-    start: usize,
-    end: usize,
+    pub line: usize,
+    pub start: usize,
+    pub end: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
     Number(f64),
     String(String),
@@ -39,11 +39,25 @@ impl<'lexer> Lexer<'_> {
 
     pub fn next(&mut self) -> Result<Token, LspError> {
         // skip whitespace
-        while self
-            .cur()
-            .is_some_and(|char| matches!(char, ' ' | '\t' | '\n'))
-        {
+        while match self.cur() {
+            Some(' ' | '\t') => true,
+            Some('\n') => {
+                self.line += 1;
+                true
+            }
+            Some(_) | None => false,
+        } {
             self.advance();
+        }
+
+        // skip comments
+        if self.cur().is_some_and(|char| char == ';')
+            && self.next_byte().is_some_and(|char| char == ';')
+        {
+            while self.cur().is_some_and(|char| char != '\n') {
+                self.advance();
+            }
+            return self.next();
         }
 
         let char = match self.cur() {
@@ -58,13 +72,6 @@ impl<'lexer> Lexer<'_> {
             '*' => self.create_token(TokenType::Multipy),
             '(' => self.create_token(TokenType::DelimitorLeft),
             ')' => self.create_token(TokenType::DelimitorRight),
-            // skip comments
-            ';' if self.next_byte().is_some_and(|c| c == ';') => {
-                while self.cur().is_some_and(|char| char != '\n') {
-                    self.advance();
-                }
-                self.next()
-            }
             '0'..'9' => {
                 let start = self.pos;
                 while self

@@ -7,6 +7,7 @@ use std::fs;
 
 use clap::Parser;
 use lexer::{Lexer, Token, TokenType};
+use parser::Ast;
 
 #[derive(clap::Parser)]
 struct Config {
@@ -34,6 +35,7 @@ fn main() {
 
     let mut errors = vec![];
     let mut tokens = vec![];
+
     let mut lexer = Lexer::new(&file_contents);
     'lexer_loop: loop {
         match lexer.next() {
@@ -45,6 +47,17 @@ fn main() {
             Ok(token) => tokens.push(token),
         }
     }
-    dbg!(tokens);
-    dbg!(errors);
+
+    let mut parser = parser::Parser::new(&tokens);
+    let mut ast = vec![];
+
+    'parser_loop: loop {
+        match parser.next() {
+            Ok(Ast::Unknown) => break 'parser_loop,
+            Err(err) => errors.push(err),
+            Ok(node) => ast.push(node),
+        }
+    }
+
+    dbg!(errors, tokens, ast);
 }
