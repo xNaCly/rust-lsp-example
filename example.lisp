@@ -1,22 +1,26 @@
-;; atoms
-102910 ;; number
-3.1415 ;; also number 
-"Hello World" ;; string
+;; ---- atoms ----
+102910
+3.1415 
+"Hello World"
 "
-Hello World ;; string
-Hello World ;; string
-Hello World ;; string
-Hello World ;; string
-" ;; muli line string
+Hello World
+Hello World
+Hello World
+Hello World
+"
 
-;; artihmetics operations
-(+ 3.1415 12345)
-(+ "Hello" "World")
+;; ---- variables ----
+(:pi 3.1415)
+(:tau 
+    (* 2 pi))
+(:hello_world "Hello World")
+
+;; ---- operations ----
+(+ pi 12345)
+(+ hello_world hello_world)
 (- 1 85)
 (/ 128 2)
 (* 5 10)
-
-;; nested 
 (+ 25 
    (- 25 
       (/ 25 
