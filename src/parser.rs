@@ -4,14 +4,16 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub enum Ast {
+pub enum Atom {
     Number(f64),
     String(String),
-    Binary {
-        op: TokenType,
-        left: Box<Ast>,
-        right: Box<Ast>,
-    },
+    Ident(String),
+}
+
+#[derive(Debug)]
+pub enum Ast {
+    Atom(Atom),
+    Binary { op: TokenType, children: Vec<Ast> },
     Unknown,
 }
 
@@ -86,10 +88,18 @@ impl<'parser> Parser<'parser> {
 
         self.advance();
 
+        let mut children = vec![];
+
+        while self
+            .cur()
+            .is_some_and(|tok| tok.token_type != TokenType::DelimitorRight)
+        {
+            children.push(self.parse()?);
+        }
+
         let bin = Ast::Binary {
             op: token_type,
-            left: Box::new(self.parse()?),
-            right: Box::new(self.parse()?),
+            children: children,
         };
 
         self.consume(TokenType::DelimitorRight)?;
@@ -113,11 +123,11 @@ impl<'parser> Parser<'parser> {
             Token {
                 token_type: TokenType::Number(num),
                 ..
-            } => Ok(Ast::Number(*num)),
+            } => Ok(Ast::Atom(Atom::Number(*num))),
             Token {
                 token_type: TokenType::String(str),
                 ..
-            } => Ok(Ast::String(str.into())),
+            } => Ok(Ast::Atom(Atom::String(str.into()))),
             Token {
                 token_type: TokenType::DelimitorLeft,
                 ..
