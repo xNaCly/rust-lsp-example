@@ -51,8 +51,7 @@ impl<'lexer> Lexer<'_> {
         }
 
         // skip comments
-        if self.cur().is_some_and(|char| char == ';')
-            && self.next_byte().is_some_and(|char| char == ';')
+        if self.cur().is_some_and(|char| char == ';') && self.peek().is_some_and(|char| char == ';')
         {
             while self.cur().is_some_and(|char| char != '\n') {
                 self.advance();
@@ -151,7 +150,7 @@ impl<'lexer> Lexer<'_> {
         self.input.get(self.pos).map(|u| *u as char)
     }
 
-    fn next_byte(&self) -> Option<char> {
+    fn peek(&self) -> Option<char> {
         self.input.get(self.pos + 1).map(|u| *u as char)
     }
 }
