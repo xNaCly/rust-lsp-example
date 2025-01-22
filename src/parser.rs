@@ -5,7 +5,9 @@ use crate::{
 
 #[derive(Debug)]
 pub enum Atom {
+    /// Number represtents all numbers, can be floating point or whole
     Number(f64),
+    /// String is a rust native String and holds all bytes between ""
     String(String),
     Ident(String),
 }
@@ -13,7 +15,7 @@ pub enum Atom {
 #[derive(Debug)]
 pub enum Ast {
     Atom(Atom),
-    Binary { op: TokenType, children: Vec<Ast> },
+    List { op: TokenType, children: Vec<Ast> },
     Unknown,
 }
 
@@ -97,9 +99,9 @@ impl<'parser> Parser<'parser> {
             children.push(self.parse()?);
         }
 
-        let bin = Ast::Binary {
+        let bin = Ast::List {
             op: token_type,
-            children: children,
+            children,
         };
 
         self.consume(TokenType::DelimitorRight)?;
