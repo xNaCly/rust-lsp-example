@@ -28,6 +28,18 @@ pub struct Lexer<'lexer> {
     input: &'lexer [u8],
 }
 
+impl<'lexer> Iterator for Lexer<'lexer> {
+    type Item = Result<Token, LspError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos >= self.input.len() {
+            None
+        } else {
+            Some(self.next())
+        }
+    }
+}
+
 impl<'lexer> Lexer<'_> {
     pub fn new(input: &'lexer [u8]) -> Lexer<'lexer> {
         Lexer {
@@ -37,7 +49,7 @@ impl<'lexer> Lexer<'_> {
         }
     }
 
-    pub fn next(&mut self) -> Result<Token, LspError> {
+    fn next(&mut self) -> Result<Token, LspError> {
         // skip whitespace
         while match self.cur() {
             Some(' ' | '\t') => true,

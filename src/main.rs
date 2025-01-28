@@ -34,30 +34,24 @@ fn main() {
     };
 
     let mut errors = vec![];
-    let mut tokens = vec![];
+    let tokens = Lexer::new(&file_contents)
+        .filter_map(|x| match x {
+            Err(err) => {
+                errors.push(err);
+                None
+            }
+            Ok(t) => Some(t),
+        })
+        .collect::<Vec<Token>>();
 
-    let mut lexer = Lexer::new(&file_contents);
-    'lexer_loop: loop {
-        match lexer.next() {
-            Ok(Token {
-                token_type: TokenType::EOF,
-                ..
-            }) => break 'lexer_loop,
-            Err(err) => errors.push(err),
-            Ok(token) => tokens.push(token),
-        }
-    }
-
-    let mut parser = parser::Parser::new(&tokens);
-    let mut ast = vec![];
-
-    'parser_loop: loop {
-        match parser.next() {
-            Ok(Ast::Unknown) => break 'parser_loop,
-            Err(err) => errors.push(err),
-            Ok(node) => ast.push(node),
-        }
-    }
-
+    let ast = parser::Parser::new(&tokens)
+        .filter_map(|x| match x {
+            Err(err) => {
+                errors.push(err);
+                None
+            }
+            Ok(t) => Some(t),
+        })
+        .collect::<Vec<Ast>>();
     dbg!(errors, tokens, ast);
 }

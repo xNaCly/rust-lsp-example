@@ -24,12 +24,24 @@ pub struct Parser<'parser> {
     tokens: &'parser [Token],
 }
 
+impl<'parser> Iterator for Parser<'parser> {
+    type Item = Result<Ast, LspError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos >= self.tokens.len() {
+            None
+        } else {
+            Some(self.next())
+        }
+    }
+}
+
 impl<'parser> Parser<'parser> {
     pub fn new(tokens: &'parser [Token]) -> Parser<'parser> {
         Parser { pos: 0, tokens }
     }
 
-    pub fn next(&mut self) -> Result<Ast, LspError> {
+    fn next(&mut self) -> Result<Ast, LspError> {
         self.parse()
     }
 
