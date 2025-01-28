@@ -16,6 +16,7 @@ pub enum Atom {
 pub enum Ast {
     Atom(Atom),
     List { op: TokenType, children: Vec<Ast> },
+    // Emitted for unknown elements and as a stop
     Unknown,
 }
 
@@ -28,10 +29,11 @@ impl<'parser> Iterator for Parser<'parser> {
     type Item = Result<Ast, LspError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.pos >= self.tokens.len() {
+        let ast = self.parse();
+        if let Ok(Ast::Unknown) = ast {
             None
         } else {
-            Some(self.next())
+            Some(ast)
         }
     }
 }
@@ -41,60 +43,45 @@ impl<'parser> Parser<'parser> {
         Parser { pos: 0, tokens }
     }
 
-    fn next(&mut self) -> Result<Ast, LspError> {
-        self.parse()
+    fn err(&mut self, msg: String) -> Result<Ast, LspError> {
+        let (line, start, end) = self
+            .cur()
+            .map(|t| (t.line, t.start, t.end))
+            .unwrap_or_else(|| (0, 0, 0));
+        self.advance();
+        Err(LspError::new(line, start, end, msg))
     }
 
     fn parse(&mut self) -> Result<Ast, LspError> {
         match self.cur() {
-            Some(tok) => match tok.token_type.clone() {
-                TokenType::Number(_) | TokenType::String(_) => {
-                    let r = self.literal();
-                    self.advance();
-                    r
-                }
-                TokenType::DelimitorLeft => self.binary(),
-                t @ _ => {
-                    self.advance();
-                    Err(LspError::new(
-                        0,
-                        0,
-                        0,
-                        format!("Unexpected {:?}, wanted Number, String or DelimitorLeft", t),
-                    ))
-                }
+            Some(tok) => match &tok.token_type {
+                TokenType::EOF => Ok(Ast::Unknown),
+                TokenType::Number(_) | TokenType::String(_) | TokenType::Ident(_) => self.atom(),
+                TokenType::DelimitorLeft => self.list(),
+                t @ _ => self.err(format!("Unexpected {:?}, wanted Atom or List", t)),
             },
             None => Ok(Ast::Unknown),
         }
     }
 
-    fn binary(&mut self) -> Result<Ast, LspError> {
+    fn list(&mut self) -> Result<Ast, LspError> {
         self.consume(TokenType::DelimitorLeft)?;
 
         let tok = match self.cur() {
             Some(tok) => tok,
-            None => {
-                return Err(LspError::new(
-                    0,
-                    0,
-                    0,
-                    "Unexpected EOF, wanted Binary".into(),
-                ))
-            }
+            None => return Err(LspError::new(0, 0, 0, "Unexpected EOF, wanted List".into())),
         };
 
         match tok.token_type {
+            // variable definition
+            TokenType::Colon => (),
+            // list operations
             TokenType::Add | TokenType::Subtract | TokenType::Divide | TokenType::Multipy => (),
             _ => {
-                return dbg!(Err(LspError::new(
-                    tok.line,
-                    tok.start,
-                    tok.end,
-                    format!(
-                        "Wanted Add, Subtract, Divide or Multipy, got {:?}",
-                        tok.token_type
-                    ),
-                )))
+                return self.err(format!(
+                    "Wanted Add, Subtract, Divide, Multipy or Colon, got {:?}",
+                    tok.token_type
+                ));
             }
         };
 
@@ -106,7 +93,8 @@ impl<'parser> Parser<'parser> {
 
         while self
             .cur()
-            .is_some_and(|tok| tok.token_type != TokenType::DelimitorRight)
+            .map(|e| &e.token_type)
+            .is_some_and(|t| t != &TokenType::DelimitorRight && t != &TokenType::EOF)
         {
             children.push(self.parse()?);
         }
@@ -120,20 +108,13 @@ impl<'parser> Parser<'parser> {
         Ok(bin)
     }
 
-    fn literal(&mut self) -> Result<Ast, LspError> {
+    fn atom(&mut self) -> Result<Ast, LspError> {
         let tok = match self.cur() {
             Some(tok) => tok,
-            None => {
-                return Err(LspError::new(
-                    0,
-                    0,
-                    0,
-                    "Unexpected EOF, wanted Binary".into(),
-                ))
-            }
+            None => return Err(LspError::new(0, 0, 0, "Unexpected EOF, wanted Atom".into())),
         };
 
-        match tok {
+        let t = match tok {
             Token {
                 token_type: TokenType::Number(num),
                 ..
@@ -143,6 +124,10 @@ impl<'parser> Parser<'parser> {
                 ..
             } => Ok(Ast::Atom(Atom::String(str.into()))),
             Token {
+                token_type: TokenType::Ident(str),
+                ..
+            } => Ok(Ast::Atom(Atom::Ident(str.into()))),
+            Token {
                 token_type: TokenType::DelimitorLeft,
                 ..
             } => self.parse(),
@@ -150,34 +135,25 @@ impl<'parser> Parser<'parser> {
                 tok.line,
                 tok.start,
                 tok.end,
-                format!(
-                    "Wanted String, Number or DelimitorLeft, got {:?}",
-                    tok.token_type
-                ),
+                format!("Wanted Atom or DelimitorLeft, got {:?}", tok.token_type),
             )),
-        }
+        };
+
+        self.advance();
+        t
     }
 
-    fn consume(&mut self, token_type: TokenType) -> Result<(), LspError> {
+    fn consume(&mut self, token_type: TokenType) -> Result<Ast, LspError> {
         let tok = match self.cur() {
             Some(tok) => tok,
-            _ => {
-                return Err(LspError::new(
-                    0,
-                    0,
-                    0,
-                    "Unexpected EOF, wanted Binary".into(),
-                ))
-            }
+            _ => return self.err(format!("Unexpected EOF in place of {:?}", token_type)),
         };
         let r = if tok.token_type == token_type {
-            Ok(())
+            Ok(Ast::Unknown)
         } else {
-            Err(LspError::new(
-                tok.line,
-                tok.start,
-                tok.end,
-                format!("Wanted {:?}, but got {:?}", token_type, tok.token_type,),
+            self.err(format!(
+                "Unexpected {:?} in place of {:?}",
+                token_type, tok.token_type,
             ))
         };
         self.advance();

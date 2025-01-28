@@ -12,13 +12,14 @@ pub struct Token {
 pub enum TokenType {
     Number(f64),
     String(String),
+    Ident(String),
     Add,
     Subtract,
     Multipy,
     Divide,
+    Colon,
     DelimitorLeft,
     DelimitorRight,
-    /// indicates the end of the input
     EOF,
 }
 
@@ -71,9 +72,13 @@ impl<'lexer> Lexer<'_> {
             return self.next();
         }
 
+        if self.pos >= self.input.len() {
+            return self.create_token(TokenType::EOF);
+        }
+
         let char = match self.cur() {
             Some(char) => char,
-            None => return self.create_token(TokenType::EOF),
+            None => return Err(self.create_error("Unexpected end of input", self.pos)),
         };
 
         let tok = match char {
@@ -83,7 +88,8 @@ impl<'lexer> Lexer<'_> {
             '*' => self.create_token(TokenType::Multipy),
             '(' => self.create_token(TokenType::DelimitorLeft),
             ')' => self.create_token(TokenType::DelimitorRight),
-            '0'..'9' => {
+            ':' => self.create_token(TokenType::Colon),
+            '0'..='9' => {
                 let start = self.pos;
                 while self
                     .cur()
@@ -100,16 +106,31 @@ impl<'lexer> Lexer<'_> {
                     self.create_error(format!("Failed to parse number: {err}"), start)
                 })?;
 
-                // we decrement one because we are at the last position of the integer, which the
-                // self.advance at the bottom of the function skips past
-                self.pos -= 1;
-
-                Ok(Token {
+                return Ok(Token {
                     token_type: TokenType::Number(number),
                     line: self.line,
                     start,
                     end: self.pos,
-                })
+                });
+            }
+            'a'..='z' | 'A'..='Z' => {
+                let start = self.pos;
+                while self
+                    .cur()
+                    .is_some_and(|char| matches!(char, 'a'..='z' | 'A'..='Z' | '_' | '0'..'9'))
+                {
+                    self.advance();
+                }
+                let bytes = self.input.get(start..self.pos).unwrap_or_default().to_vec();
+                let string = String::from_utf8(bytes).map_err(|err| {
+                    self.create_error(format!("Failed to create string: {err}"), start)
+                })?;
+                return Ok(Token {
+                    token_type: TokenType::Ident(string),
+                    line: self.line,
+                    start,
+                    end: self.pos,
+                });
             }
             // strings ofc ofc
             '"' => {

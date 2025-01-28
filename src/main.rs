@@ -1,3 +1,4 @@
+#![allow(unused)]
 mod error;
 mod lexer;
 mod lsp;
@@ -6,7 +7,7 @@ mod parser;
 use std::fs;
 
 use clap::Parser;
-use lexer::{Lexer, Token, TokenType};
+use lexer::{Lexer, Token};
 use parser::Ast;
 
 #[derive(clap::Parser)]
@@ -44,7 +45,7 @@ fn main() {
         })
         .collect::<Vec<Token>>();
 
-    let ast = parser::Parser::new(&tokens)
+    let _ = parser::Parser::new(&tokens)
         .filter_map(|x| match x {
             Err(err) => {
                 errors.push(err);
@@ -53,5 +54,5 @@ fn main() {
             Ok(t) => Some(t),
         })
         .collect::<Vec<Ast>>();
-    dbg!(errors, tokens, ast);
+    dbg!(errors);
 }

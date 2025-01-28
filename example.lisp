@@ -3,14 +3,14 @@
 3.1415 
 "Hello World"
 "
-Hello World
-Hello World
-Hello World
-Hello World
+    Hello World
+    Hello World
+    Hello World
+    Hello World
 "
 
 ;; ---- variables ----
-(:pi 3.1415)
+(:pi 3.1415 b)
 (:tau 
     (* 2 pi))
 (:hello_world "Hello World")
