@@ -1,5 +1,6 @@
 #![allow(unused)]
 mod error;
+mod eval;
 mod lexer;
 mod lsp;
 mod parser;
@@ -7,8 +8,9 @@ mod parser;
 use std::fs;
 
 use clap::Parser;
+use eval::eval;
 use lexer::{Lexer, Token};
-use parser::Ast;
+use parser::{Context, Node};
 
 #[derive(clap::Parser)]
 struct Config {
@@ -45,7 +47,8 @@ fn main() {
         })
         .collect::<Vec<Token>>();
 
-    let _ = parser::Parser::new(&tokens)
+    let mut ctx = Context::default();
+    let ast = parser::Parser::new(&tokens)
         .filter_map(|x| match x {
             Err(err) => {
                 errors.push(err);
@@ -53,6 +56,16 @@ fn main() {
             }
             Ok(t) => Some(t),
         })
-        .collect::<Vec<Ast>>();
-    dbg!(errors);
+        .collect::<Vec<_>>();
+    let eval_result = ast
+        .into_iter()
+        .flat_map(|node| match eval(&node, &mut ctx) {
+            Ok(str) => Some(str),
+            Err(err) => {
+                errors.push(err);
+                None
+            }
+        })
+        .collect::<Vec<String>>();
+    dbg!(eval_result, errors);
 }

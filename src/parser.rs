@@ -1,23 +1,25 @@
+use std::collections::HashMap;
+
 use crate::{
     error::LspError,
     lexer::{Token, TokenType},
 };
 
+#[derive(Default)]
+pub struct Context {
+    pub variables: HashMap<String, Node>,
+}
+
 #[derive(Debug)]
-pub enum Atom {
+pub enum Node {
     /// Number represtents all numbers, can be floating point or whole
     Number(f64),
     /// String is a rust native String and holds all bytes between ""
     String(String),
     Ident(String),
-}
-
-#[derive(Debug)]
-pub enum Ast {
-    Atom(Atom),
-    List { op: TokenType, children: Vec<Ast> },
+    List(Vec<Node>),
     // Emitted for unknown elements and as a stop
-    Unknown,
+    Null,
 }
 
 pub struct Parser<'parser> {
@@ -26,11 +28,11 @@ pub struct Parser<'parser> {
 }
 
 impl<'parser> Iterator for Parser<'parser> {
-    type Item = Result<Ast, LspError>;
+    type Item = Result<Node, LspError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let ast = self.parse();
-        if let Ok(Ast::Unknown) = ast {
+        if let Ok(Node::Null) = ast {
             None
         } else {
             Some(ast)
@@ -43,7 +45,7 @@ impl<'parser> Parser<'parser> {
         Parser { pos: 0, tokens }
     }
 
-    fn err(&mut self, msg: String) -> Result<Ast, LspError> {
+    fn err(&mut self, msg: String) -> Result<Node, LspError> {
         let (line, start, end) = self
             .cur()
             .map(|t| (t.line, t.start, t.end))
@@ -52,42 +54,25 @@ impl<'parser> Parser<'parser> {
         Err(LspError::new(line, start, end, msg))
     }
 
-    fn parse(&mut self) -> Result<Ast, LspError> {
+    fn parse(&mut self) -> Result<Node, LspError> {
         match self.cur() {
             Some(tok) => match &tok.token_type {
-                TokenType::EOF => Ok(Ast::Unknown),
+                TokenType::EOF => Ok(Node::Null),
                 TokenType::Number(_) | TokenType::String(_) | TokenType::Ident(_) => self.atom(),
                 TokenType::DelimitorLeft => self.list(),
                 t @ _ => self.err(format!("Unexpected {:?}, wanted Atom or List", t)),
             },
-            None => Ok(Ast::Unknown),
+            None => Ok(Node::Null),
         }
     }
 
-    fn list(&mut self) -> Result<Ast, LspError> {
+    fn list(&mut self) -> Result<Node, LspError> {
         self.consume(TokenType::DelimitorLeft)?;
 
         let tok = match self.cur() {
             Some(tok) => tok,
             None => return Err(LspError::new(0, 0, 0, "Unexpected EOF, wanted List".into())),
         };
-
-        match tok.token_type {
-            // variable definition
-            TokenType::Colon => (),
-            // list operations
-            TokenType::Add | TokenType::Subtract | TokenType::Divide | TokenType::Multipy => (),
-            _ => {
-                return self.err(format!(
-                    "Wanted Add, Subtract, Divide, Multipy or Colon, got {:?}",
-                    tok.token_type
-                ));
-            }
-        };
-
-        let token_type = tok.token_type.clone();
-
-        self.advance();
 
         let mut children = vec![];
 
@@ -99,16 +84,13 @@ impl<'parser> Parser<'parser> {
             children.push(self.parse()?);
         }
 
-        let bin = Ast::List {
-            op: token_type,
-            children,
-        };
+        let bin = Node::List(children);
 
         self.consume(TokenType::DelimitorRight)?;
         Ok(bin)
     }
 
-    fn atom(&mut self) -> Result<Ast, LspError> {
+    fn atom(&mut self) -> Result<Node, LspError> {
         let tok = match self.cur() {
             Some(tok) => tok,
             None => return Err(LspError::new(0, 0, 0, "Unexpected EOF, wanted Atom".into())),
@@ -118,15 +100,15 @@ impl<'parser> Parser<'parser> {
             Token {
                 token_type: TokenType::Number(num),
                 ..
-            } => Ok(Ast::Atom(Atom::Number(*num))),
+            } => Ok(Node::Number(*num)),
             Token {
                 token_type: TokenType::String(str),
                 ..
-            } => Ok(Ast::Atom(Atom::String(str.into()))),
+            } => Ok(Node::String(str.into())),
             Token {
                 token_type: TokenType::Ident(str),
                 ..
-            } => Ok(Ast::Atom(Atom::Ident(str.into()))),
+            } => Ok(Node::Ident(str.into())),
             Token {
                 token_type: TokenType::DelimitorLeft,
                 ..
@@ -143,13 +125,13 @@ impl<'parser> Parser<'parser> {
         t
     }
 
-    fn consume(&mut self, token_type: TokenType) -> Result<Ast, LspError> {
+    fn consume(&mut self, token_type: TokenType) -> Result<Node, LspError> {
         let tok = match self.cur() {
             Some(tok) => tok,
             _ => return self.err(format!("Unexpected EOF in place of {:?}", token_type)),
         };
         let r = if tok.token_type == token_type {
-            Ok(Ast::Unknown)
+            Ok(Node::Null)
         } else {
             self.err(format!(
                 "Unexpected {:?} in place of {:?}",
