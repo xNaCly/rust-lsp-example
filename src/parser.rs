@@ -10,7 +10,7 @@ pub struct Context {
     pub variables: HashMap<String, Node>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Node {
     /// Number represtents all numbers, can be floating point or whole
     Number(f64),
@@ -18,6 +18,10 @@ pub enum Node {
     String(String),
     Ident(String),
     List(Vec<Node>),
+    Var {
+        ident: String,
+        value: Box<Node>,
+    },
     // Emitted for unknown elements and as a stop
     Null,
 }
@@ -58,12 +62,35 @@ impl<'parser> Parser<'parser> {
         match self.cur() {
             Some(tok) => match &tok.token_type {
                 TokenType::EOF => Ok(Node::Null),
+                TokenType::Hashtag => self.variable(),
                 TokenType::Number(_) | TokenType::String(_) | TokenType::Ident(_) => self.atom(),
                 TokenType::DelimitorLeft => self.list(),
                 t @ _ => self.err(format!("Unexpected {:?}, wanted Atom or List", t)),
             },
             None => Ok(Node::Null),
         }
+    }
+
+    fn variable(&mut self) -> Result<Node, LspError> {
+        self.consume(TokenType::Hashtag)?;
+        self.consume(TokenType::DelimitorLeft)?;
+        let ident = if let Some(Token {
+            token_type: TokenType::Ident(ident),
+            ..
+        }) = self.cur()
+        {
+            ident.clone()
+        } else {
+            return self.err(format!("Unexpected {:?}, wanted an Identifier", self.cur()));
+        };
+        // skipping the ident
+        self.advance();
+        let value = self.parse()?;
+        self.consume(TokenType::DelimitorRight)?;
+        Ok(Node::Var {
+            ident,
+            value: Box::new(value),
+        })
     }
 
     fn list(&mut self) -> Result<Node, LspError> {
@@ -75,11 +102,10 @@ impl<'parser> Parser<'parser> {
         };
 
         let mut children = vec![];
-
         while self
             .cur()
             .map(|e| &e.token_type)
-            .is_some_and(|t| t != &TokenType::DelimitorRight && t != &TokenType::EOF)
+            .is_some_and(|t| *t != TokenType::DelimitorRight && *t != TokenType::EOF)
         {
             children.push(self.parse()?);
         }

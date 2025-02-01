@@ -8,7 +8,6 @@ mod parser;
 use std::fs;
 
 use clap::Parser;
-use eval::eval;
 use lexer::{Lexer, Token};
 use parser::{Context, Node};
 
@@ -57,15 +56,17 @@ fn main() {
             Ok(t) => Some(t),
         })
         .collect::<Vec<_>>();
-    let eval_result = ast
+    let eval_result = dbg!(ast)
         .into_iter()
-        .flat_map(|node| match eval(&node, &mut ctx) {
+        .flat_map(|node| match ctx.eval(&node) {
             Ok(str) => Some(str),
             Err(err) => {
                 errors.push(err);
                 None
             }
         })
+        .flatten()
         .collect::<Vec<String>>();
-    dbg!(eval_result, errors);
+    dbg!(errors);
+    println!("{:?}", eval_result);
 }

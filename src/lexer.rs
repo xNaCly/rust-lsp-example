@@ -13,11 +13,7 @@ pub enum TokenType {
     Number(f64),
     String(String),
     Ident(String),
-    Add,
-    Subtract,
-    Multipy,
-    Divide,
-    Colon,
+    Hashtag,
     DelimitorLeft,
     DelimitorRight,
     EOF,
@@ -64,8 +60,7 @@ impl<'lexer> Lexer<'_> {
         }
 
         // skip comments
-        if self.cur().is_some_and(|char| char == ';') && self.peek().is_some_and(|char| char == ';')
-        {
+        if self.cur().is_some_and(|char| char == ';') {
             while self.cur().is_some_and(|char| char != '\n') {
                 self.advance();
             }
@@ -82,13 +77,9 @@ impl<'lexer> Lexer<'_> {
         };
 
         let tok = match char {
-            '+' => self.create_token(TokenType::Add),
-            '-' => self.create_token(TokenType::Subtract),
-            '/' => self.create_token(TokenType::Divide),
-            '*' => self.create_token(TokenType::Multipy),
             '(' => self.create_token(TokenType::DelimitorLeft),
             ')' => self.create_token(TokenType::DelimitorRight),
-            ':' => self.create_token(TokenType::Colon),
+            '#' => self.create_token(TokenType::Hashtag),
             '0'..='9' => {
                 let start = self.pos;
                 while self
