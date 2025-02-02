@@ -73,7 +73,7 @@ impl<'lexer> Lexer<'_> {
 
         let char = match self.cur() {
             Some(char) => char,
-            None => return Err(self.create_error("Unexpected end of input", self.pos)),
+            None => return Err(self.err("Unexpected end of input", self.pos)),
         };
 
         let tok = match char {
@@ -90,12 +90,11 @@ impl<'lexer> Lexer<'_> {
                 }
 
                 let bytes = self.input.get(start..self.pos).unwrap_or_default().to_vec();
-                let string = String::from_utf8(bytes).map_err(|err| {
-                    self.create_error(format!("Failed to create string: {err}"), start)
-                })?;
-                let number = string.parse::<f64>().map_err(|err| {
-                    self.create_error(format!("Failed to parse number: {err}"), start)
-                })?;
+                let string = String::from_utf8(bytes)
+                    .map_err(|err| self.err(format!("Failed to create string: {err}"), start))?;
+                let number = string
+                    .parse::<f64>()
+                    .map_err(|err| self.err(format!("Failed to parse number: {err}"), start))?;
 
                 return Ok(Token {
                     token_type: TokenType::Number(number),
@@ -113,9 +112,8 @@ impl<'lexer> Lexer<'_> {
                     self.advance();
                 }
                 let bytes = self.input.get(start..self.pos).unwrap_or_default().to_vec();
-                let string = String::from_utf8(bytes).map_err(|err| {
-                    self.create_error(format!("Failed to create string: {err}"), start)
-                })?;
+                let string = String::from_utf8(bytes)
+                    .map_err(|err| self.err(format!("Failed to create string: {err}"), start))?;
                 return Ok(Token {
                     token_type: TokenType::Ident(string),
                     line: self.line,
@@ -132,9 +130,8 @@ impl<'lexer> Lexer<'_> {
                     self.advance();
                 }
                 let bytes = self.input.get(start..self.pos).unwrap_or_default().to_vec();
-                let string = String::from_utf8(bytes).map_err(|err| {
-                    self.create_error(format!("Failed to create string: {err}"), start)
-                })?;
+                let string = String::from_utf8(bytes)
+                    .map_err(|err| self.err(format!("Failed to create string: {err}"), start))?;
                 let tok = Ok(Token {
                     token_type: TokenType::String(string),
                     line: self.line,
@@ -142,18 +139,18 @@ impl<'lexer> Lexer<'_> {
                     end: self.pos,
                 });
                 if self.cur().is_none() {
-                    Err(self.create_error("Unterminated string", start))
+                    Err(self.err("Unterminated string", start))
                 } else {
                     tok
                 }
             }
-            cur @ _ => Err(self.create_error(format!("Unkown character '{cur}'"), self.pos)),
+            cur @ _ => Err(self.err(format!("Unkown character '{cur}'"), self.pos)),
         };
         self.advance();
         return tok;
     }
 
-    fn create_error(&self, message: impl Into<String>, start: usize) -> LspError {
+    fn err(&self, message: impl Into<String>, start: usize) -> LspError {
         LspError::with_context(
             TokenContext {
                 line: self.line,

@@ -8,7 +8,6 @@ impl Context {
         self.variables.get(ident)
     }
 
-    // TODO: errors require token information on ast
     pub fn eval(&mut self, ast: &Node) -> Result<Option<String>, LspError> {
         match ast {
             Node::Number { val, .. } => Ok(Some(val.to_string())),
