@@ -11,22 +11,20 @@ impl Context {
     // TODO: errors require token information on ast
     pub fn eval(&mut self, ast: &Node) -> Result<Option<String>, LspError> {
         match ast {
-            Node::Number(num) => Ok(Some(num.to_string())),
-            Node::Ident(ident) => {
-                let n = if let Some(node) = self.get_var(ident) {
+            Node::Number { val, .. } => Ok(Some(val.to_string())),
+            Node::Ident { ctx, val } => {
+                let n = if let Some(node) = self.get_var(val) {
                     node.clone()
                 } else {
-                    return Err(LspError::new(
-                        0,
-                        0,
-                        0,
-                        format!("undefined identifier: {}", ident),
+                    return Err(LspError::with_context(
+                        ctx.into(),
+                        format!("undefined identifier: {}", val),
                     ));
                 };
 
                 self.eval(&n)
             }
-            Node::String(string) => Ok(Some(string.to_string())),
+            Node::String { val, .. } => Ok(Some(val.to_string())),
             Node::List(children) => {
                 let mut buf = String::new();
                 buf.push('(');
@@ -41,7 +39,7 @@ impl Context {
                 buf.push(')');
                 Ok(Some(buf))
             }
-            Node::Var { ident, value } => {
+            Node::Var { ident, value, .. } => {
                 self.variables.insert(ident.to_string(), *value.clone());
                 Ok(None)
             }

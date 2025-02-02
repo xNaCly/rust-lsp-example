@@ -1,4 +1,4 @@
-use crate::error::LspError;
+use crate::{error::LspError, parser::TokenContext};
 
 #[derive(Debug)]
 pub struct Token {
@@ -154,7 +154,14 @@ impl<'lexer> Lexer<'_> {
     }
 
     fn create_error(&self, message: impl Into<String>, start: usize) -> LspError {
-        LspError::new(self.line, start, self.pos, message.into())
+        LspError::with_context(
+            TokenContext {
+                line: self.line,
+                start,
+                end: self.pos,
+            },
+            message.into(),
+        )
     }
 
     fn create_token(&self, token_type: TokenType) -> Result<Token, LspError> {

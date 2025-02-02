@@ -5,6 +5,31 @@ use crate::{
     lexer::{Token, TokenType},
 };
 
+#[derive(Default, Clone, Debug)]
+pub struct TokenContext {
+    pub line: usize,
+    pub start: usize,
+    pub end: usize,
+}
+
+impl From<&Token> for TokenContext {
+    fn from(t: &Token) -> Self {
+        let &Token {
+            line, start, end, ..
+        } = t;
+        Self { line, start, end }
+    }
+}
+
+impl From<&TokenContext> for TokenContext {
+    fn from(ctx: &TokenContext) -> Self {
+        let &TokenContext {
+            line, start, end, ..
+        } = ctx;
+        Self { line, start, end }
+    }
+}
+
 #[derive(Default)]
 pub struct Context {
     pub variables: HashMap<String, Node>,
@@ -13,12 +38,22 @@ pub struct Context {
 #[derive(Debug, Clone)]
 pub enum Node {
     /// Number represtents all numbers, can be floating point or whole
-    Number(f64),
+    Number {
+        ctx: TokenContext,
+        val: f64,
+    },
     /// String is a rust native String and holds all bytes between ""
-    String(String),
-    Ident(String),
+    String {
+        ctx: TokenContext,
+        val: String,
+    },
+    Ident {
+        ctx: TokenContext,
+        val: String,
+    },
     List(Vec<Node>),
     Var {
+        ctx: TokenContext,
         ident: String,
         value: Box<Node>,
     },
@@ -50,12 +85,9 @@ impl<'parser> Parser<'parser> {
     }
 
     fn err(&mut self, msg: String) -> Result<Node, LspError> {
-        let (line, start, end) = self
-            .cur()
-            .map(|t| (t.line, t.start, t.end))
-            .unwrap_or_else(|| (0, 0, 0));
+        let ctx = self.cur().map(|t| t.into()).unwrap_or_default();
         self.advance();
-        Err(LspError::new(line, start, end, msg))
+        Err(LspError::with_context(ctx, msg))
     }
 
     fn parse(&mut self) -> Result<Node, LspError> {
@@ -74,11 +106,13 @@ impl<'parser> Parser<'parser> {
     fn variable(&mut self) -> Result<Node, LspError> {
         self.consume(TokenType::Hashtag)?;
         self.consume(TokenType::DelimitorLeft)?;
+        let ctx: TokenContext;
         let ident = if let Some(Token {
             token_type: TokenType::Ident(ident),
             ..
         }) = self.cur()
         {
+            ctx = self.cur().map(|n| n.into()).unwrap();
             ident.clone()
         } else {
             return self.err(format!("Unexpected {:?}, wanted an Identifier", self.cur()));
@@ -88,6 +122,7 @@ impl<'parser> Parser<'parser> {
         let value = self.parse()?;
         self.consume(TokenType::DelimitorRight)?;
         Ok(Node::Var {
+            ctx,
             ident,
             value: Box::new(value),
         })
@@ -98,7 +133,12 @@ impl<'parser> Parser<'parser> {
 
         let tok = match self.cur() {
             Some(tok) => tok,
-            None => return Err(LspError::new(0, 0, 0, "Unexpected EOF, wanted List".into())),
+            None => {
+                return Err(LspError::with_context(
+                    TokenContext::default(),
+                    "Unexpected EOF, wanted List".into(),
+                ))
+            }
         };
 
         let mut children = vec![];
@@ -119,30 +159,42 @@ impl<'parser> Parser<'parser> {
     fn atom(&mut self) -> Result<Node, LspError> {
         let tok = match self.cur() {
             Some(tok) => tok,
-            None => return Err(LspError::new(0, 0, 0, "Unexpected EOF, wanted Atom".into())),
+            None => {
+                return Err(LspError::with_context(
+                    TokenContext::default(),
+                    "Unexpected EOF, wanted Atom".into(),
+                ))
+            }
         };
 
         let t = match tok {
             Token {
                 token_type: TokenType::Number(num),
                 ..
-            } => Ok(Node::Number(*num)),
+            } => Ok(Node::Number {
+                val: *num,
+                ctx: tok.into(),
+            }),
             Token {
                 token_type: TokenType::String(str),
                 ..
-            } => Ok(Node::String(str.into())),
+            } => Ok(Node::String {
+                val: str.into(),
+                ctx: tok.into(),
+            }),
             Token {
                 token_type: TokenType::Ident(str),
                 ..
-            } => Ok(Node::Ident(str.into())),
+            } => Ok(Node::Ident {
+                val: str.into(),
+                ctx: tok.into(),
+            }),
             Token {
                 token_type: TokenType::DelimitorLeft,
                 ..
             } => self.parse(),
-            _ => Err(LspError::new(
-                tok.line,
-                tok.start,
-                tok.end,
+            _ => Err(LspError::with_context(
+                tok.into(),
                 format!("Wanted Atom or DelimitorLeft, got {:?}", tok.token_type),
             )),
         };

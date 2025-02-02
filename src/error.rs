@@ -1,18 +1,13 @@
-#[derive(Debug, Default)]
+use crate::parser::TokenContext;
+
+#[derive(Debug)]
 pub struct LspError {
-    line: usize,
-    start: usize,
-    end: usize,
+    ctx: TokenContext,
     message: String,
 }
 
 impl LspError {
-    pub fn new(line: usize, start: usize, end: usize, message: String) -> Self {
-        Self {
-            line,
-            start,
-            end,
-            message,
-        }
+    pub fn with_context(ctx: TokenContext, message: String) -> Self {
+        Self { ctx, message }
     }
 }
