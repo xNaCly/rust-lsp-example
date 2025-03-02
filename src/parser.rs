@@ -94,9 +94,8 @@ impl<'parser> Parser<'parser> {
         match self.cur() {
             Some(tok) => match &tok.token_type {
                 TokenType::EOF => Ok(Node::Null),
-                TokenType::Hashtag => self.variable(),
                 TokenType::Number(_) | TokenType::String(_) | TokenType::Ident(_) => self.atom(),
-                TokenType::DelimitorLeft => self.list(),
+                TokenType::DelimitorLeft => self.list_like(),
                 t @ _ => self.err(format!("Unexpected {:?}, wanted Atom or List", t)),
             },
             None => Ok(Node::Null),
@@ -104,8 +103,7 @@ impl<'parser> Parser<'parser> {
     }
 
     fn variable(&mut self) -> Result<Node, LspError> {
-        self.consume(TokenType::Hashtag)?;
-        self.consume(TokenType::DelimitorLeft)?;
+        self.advance(); // skip TokenType::Ident("let")
         let ctx: TokenContext;
         let ident = if let Some(Token {
             token_type: TokenType::Ident(ident),
@@ -115,12 +113,14 @@ impl<'parser> Parser<'parser> {
             ctx = self.cur().map(|n| n.into()).unwrap();
             ident.clone()
         } else {
-            return self.err(format!("Unexpected {:?}, wanted an Identifier", self.cur()));
+            return self.err(format!(
+                "Unexpected {:?}, wanted an Identifier as the variable name",
+                self.cur().map(|e| &e.token_type)
+            ));
         };
         // skipping the ident
         self.advance();
         let value = self.parse()?;
-        self.consume(TokenType::DelimitorRight)?;
         Ok(Node::Var {
             ctx,
             ident,
@@ -128,19 +128,25 @@ impl<'parser> Parser<'parser> {
         })
     }
 
-    fn list(&mut self) -> Result<Node, LspError> {
+    fn list_like(&mut self) -> Result<Node, LspError> {
         self.consume(TokenType::DelimitorLeft)?;
 
-        let tok = match self.cur() {
-            Some(tok) => tok,
-            None => {
-                return Err(LspError::with_context(
-                    TokenContext::default(),
-                    "Unexpected EOF, wanted List".into(),
-                ))
-            }
+        let r = match &self.cur() {
+            Some(Token {
+                token_type: TokenType::Ident(name),
+                ..
+            }) => match name.as_str() {
+                "let" => self.variable(),
+                _ => self.list(),
+            },
+            _ => self.list(),
         };
 
+        self.consume(TokenType::DelimitorRight)?;
+        r
+    }
+
+    fn list(&mut self) -> Result<Node, LspError> {
         let mut children = vec![];
         while self
             .cur()
@@ -150,10 +156,7 @@ impl<'parser> Parser<'parser> {
             children.push(self.parse()?);
         }
 
-        let bin = Node::List(children);
-
-        self.consume(TokenType::DelimitorRight)?;
-        Ok(bin)
+        Ok(Node::List(children))
     }
 
     fn atom(&mut self) -> Result<Node, LspError> {

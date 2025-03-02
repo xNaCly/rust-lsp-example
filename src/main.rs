@@ -56,9 +56,9 @@ fn main() {
             Ok(t) => Some(t),
         })
         .collect::<Vec<_>>();
-    let eval_result = dbg!(ast)
+    let eval_result = ast
         .into_iter()
-        .flat_map(|node| match ctx.eval(&node) {
+        .flat_map(|node| match ctx.eval_string(&node) {
             Ok(str) => Some(str),
             Err(err) => {
                 errors.push(err);
@@ -66,7 +66,9 @@ fn main() {
             }
         })
         .flatten()
-        .collect::<Vec<String>>();
-    dbg!(errors);
-    println!("{:?}", eval_result);
+        .enumerate()
+        .map(|(i, r)| format!("[{:0>3}]: {}", i, r))
+        .collect::<Vec<String>>()
+        .join("\n");
+    println!("{}", eval_result);
 }

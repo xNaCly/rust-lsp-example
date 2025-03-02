@@ -13,7 +13,6 @@ pub enum TokenType {
     Number(f64),
     String(String),
     Ident(String),
-    Hashtag,
     DelimitorLeft,
     DelimitorRight,
     EOF,
@@ -79,7 +78,6 @@ impl<'lexer> Lexer<'_> {
         let tok = match char {
             '(' => self.create_token(TokenType::DelimitorLeft),
             ')' => self.create_token(TokenType::DelimitorRight),
-            '#' => self.create_token(TokenType::Hashtag),
             '0'..='9' => {
                 let start = self.pos;
                 while self

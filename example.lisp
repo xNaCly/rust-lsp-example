@@ -13,10 +13,13 @@
 "
 
 ; ---- variables ----
-#(pi 3.1415)
-#(hello_world "Hello World")
-pi
-hello_world
+(let pi 3.1415)
+(let hello_world "Hello World")
+(let fac (0 1 2 6 24 120 720 5040 40320))
+
+pi 
+hello_world 
+fac
 
 ; ---- lists ----
 (1 85 1201 (128 2))
