@@ -29,3 +29,7 @@ fac
    (25 
       (25 
          (25 25))))
+
+; --- functions ---
+(defun timesTwoOrSomeShit (n) (* n n))
+(timesTwoOrSomeShit 12)
