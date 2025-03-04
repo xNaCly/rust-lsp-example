@@ -39,7 +39,7 @@ impl Context {
                 } else {
                     return Err(LspError::with_context(
                         ctx.into(),
-                        format!("undefined identifier: {}", val),
+                        format!("undefined identifier: `{}`", val),
                     ));
                 };
 

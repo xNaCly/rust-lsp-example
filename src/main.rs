@@ -23,7 +23,7 @@ struct Config {
 fn main() {
     let args = Config::parse();
     if args.lsp {
-        todo!("args.lsp");
+        lsp::start().unwrap();
     }
     let file = match args.path {
         Some(file) => file,
@@ -70,5 +70,16 @@ fn main() {
         .map(|(i, r)| format!("[{:0>3}]: {}", i, r))
         .collect::<Vec<String>>()
         .join("\n");
-    println!("{}", eval_result);
+    if errors.is_empty() {
+        println!("{}", eval_result);
+    } else {
+        println!(
+            "{}",
+            errors
+                .into_iter()
+                .map(|e| format!("err: {}", e.message))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+    }
 }

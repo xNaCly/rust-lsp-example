@@ -30,6 +30,14 @@ fac
       (25 
          (25 25))))
 
-; --- functions ---
-(defun timesTwoOrSomeShit (n) (* n n))
-(timesTwoOrSomeShit 12)
+; --- lambdas ---
+; no op
+; (lambda (num) num) 
+; ; immediate invocation
+; ((lambda (num) num) "hello") 
+; 
+; ; assign lambda to a variable
+;  (let return_name 
+;     (lambda (name) (name)))
+; ; call lambda
+; (return_name 5) 
