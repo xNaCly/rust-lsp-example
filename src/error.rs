@@ -28,9 +28,11 @@ impl From<&LspError> for Diagnostic {
                 },
             ),
             severity: Some(DiagnosticSeverity::ERROR),
-            code: Some(lsp_types::NumberOrString::String(String::from("lispie"))),
+            code: Some(lsp_types::NumberOrString::String(String::from(
+                "rust-lsp-example",
+            ))),
             code_description: None,
-            source: Some("lispie".into()),
+            source: Some("rust-lsp-example".into()),
             message: value.message.clone(),
             related_information: None,
             tags: None,

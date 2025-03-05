@@ -1,17 +1,23 @@
+use std::char;
+
 use lsp_server::{Connection, ExtractError, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
     notification::{DidChangeTextDocument, DidOpenTextDocument},
     request::{DocumentDiagnosticRequest, HoverRequest},
-    DiagnosticOptions, InitializeParams, SaveOptions, ServerCapabilities, TextDocumentSyncKind,
-    TextDocumentSyncOptions,
+    DiagnosticOptions, InitializeParams, Position, SaveOptions, ServerCapabilities,
+    TextDocumentSyncKind, TextDocumentSyncOptions,
 };
 
-use crate::{error::LspError, lexer::Lexer, parser::Node};
+use crate::{
+    error::LspError,
+    lexer::Lexer,
+    parser::{Context, Node},
+};
 
 pub fn start() -> Result<(), String> {
     let (connection, threads) = Connection::stdio();
     let capabilities = serde_json::to_value(&ServerCapabilities {
-        // hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
+        hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
         diagnostic_provider: Some(lsp_types::DiagnosticServerCapabilities::Options(
             DiagnosticOptions {
                 inter_file_dependencies: false,
@@ -72,10 +78,49 @@ where
     not.extract(N::METHOD)
 }
 
+fn update_state(
+    nodes: &mut Vec<Node>,
+    errors: &mut Vec<LspError>,
+    ctx: &mut Context,
+    input: &[u8],
+) -> Result<(), String> {
+    nodes.clear();
+    errors.clear();
+    ctx.clear();
+    let tokens = Lexer::new(input)
+        .filter_map(|x| match x {
+            Err(err) => {
+                errors.push(err);
+                None
+            }
+            Ok(t) => Some(t),
+        })
+        .collect::<Vec<_>>();
+    let mut ast = crate::parser::Parser::new(&tokens)
+        .filter_map(|x| match x {
+            Err(err) => {
+                errors.push(err);
+                None
+            }
+            Ok(t) => Some(t),
+        })
+        .collect::<Vec<_>>();
+
+    let mut ctx = Context::default();
+    nodes.append(&mut ast.clone());
+    ast.into_iter().for_each(|node| {
+        if let Err(e) = ctx.eval(node) {
+            errors.push(e);
+        }
+    });
+    Ok(())
+}
+
 fn event_loop(connection: Connection, params: serde_json::Value) -> Result<(), String> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
     let mut nodes: Vec<Node> = vec![];
     let mut errors: Vec<LspError> = vec![];
+    let mut ctx = Context::default();
 
     for msg in &connection.receiver {
         match msg {
@@ -90,8 +135,26 @@ fn event_loop(connection: Connection, params: serde_json::Value) -> Result<(), S
                     "textDocument/hover" => {
                         match cast::<HoverRequest>(req) {
                             Ok((id, params)) => {
-                                // TODO: hover here
-                                continue;
+                                let Position { line, character } =
+                                    params.text_document_position_params.position;
+                                let (character, line) = (character as usize, line as usize);
+                                let node = "not yet implemented";
+                                let hover_result = lsp_types::Hover {
+                                    contents: lsp_types::HoverContents::Scalar(
+                                        lsp_types::MarkedString::String(String::from(node)),
+                                    ),
+                                    range: None,
+                                };
+                                let result = serde_json::to_value(&hover_result).unwrap();
+                                let resp = Response {
+                                    id,
+                                    result: Some(result),
+                                    error: None,
+                                };
+                                connection
+                                    .sender
+                                    .send(Message::Response(resp))
+                                    .map_err(|_| "failed to send definition")?;
                             }
                             Err(err) => panic!("{err:?}"),
                         };
@@ -113,7 +176,6 @@ fn event_loop(connection: Connection, params: serde_json::Value) -> Result<(), S
                                     .sender
                                     .send(Message::Response(resp))
                                     .map_err(|_| "failed to send diagnostics")?;
-                                continue;
                             }
                             Err(err) => panic!("{err:?}"),
                         };
@@ -128,49 +190,23 @@ fn event_loop(connection: Connection, params: serde_json::Value) -> Result<(), S
             Message::Notification(not) => match not.method.as_str() {
                 "textDocument/didChange" => {
                     match cast_noti::<DidChangeTextDocument>(not) {
-                        Ok(params) => {
-                            let text = &(params.content_changes[0].text.clone().into_bytes());
-                            let tokens = Lexer::new(&text)
-                                .filter_map(|x| match x {
-                                    Err(err) => {
-                                        errors.push(err);
-                                        None
-                                    }
-                                    Ok(t) => Some(t),
-                                })
-                                .collect::<Vec<_>>();
-                            crate::parser::Parser::new(&tokens).filter_map(|x| match x {
-                                Err(err) => {
-                                    errors.push(err);
-                                    None
-                                }
-                                Ok(t) => Some(t),
-                            });
-                        }
+                        Ok(params) => update_state(
+                            &mut nodes,
+                            &mut errors,
+                            &mut ctx,
+                            &(params.content_changes[0].text.as_bytes()),
+                        ),
                         Err(err) => panic!("failed to cast notification: {err:?}"),
                     };
                 }
                 "textDocument/didOpen" => {
                     match cast_noti::<DidOpenTextDocument>(not) {
-                        Ok(params) => {
-                            let text = &(params.text_document.text.into_bytes());
-                            let tokens = Lexer::new(&text)
-                                .filter_map(|x| match x {
-                                    Err(err) => {
-                                        errors.push(err);
-                                        None
-                                    }
-                                    Ok(t) => Some(t),
-                                })
-                                .collect::<Vec<_>>();
-                            crate::parser::Parser::new(&tokens).filter_map(|x| match x {
-                                Err(err) => {
-                                    errors.push(err);
-                                    None
-                                }
-                                Ok(t) => Some(t),
-                            });
-                        }
+                        Ok(params) => update_state(
+                            &mut nodes,
+                            &mut errors,
+                            &mut ctx,
+                            &(params.text_document.text.into_bytes()),
+                        ),
                         Err(err) => panic!("failed to cast notification: {err:?}"),
                     };
                 }

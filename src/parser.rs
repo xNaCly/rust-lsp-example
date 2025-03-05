@@ -30,14 +30,27 @@ impl From<&TokenContext> for TokenContext {
     }
 }
 
+pub struct LspType {
+    pub node_type: String,
+    pub start: usize,
+    pub end: usize,
+}
+
 #[derive(Default)]
 pub struct Context {
     pub variables: HashMap<String, Node>,
+    pub types_on_line: HashMap<usize, LspType>,
+}
+
+impl Context {
+    pub fn clear(&mut self) {
+        self.variables.clear();
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum Node {
-    /// Number represtents all numbers, can be floating point or whole
+    /// Number represents all numbers, can be floating point or whole
     Number {
         ctx: TokenContext,
         val: f64,
@@ -51,14 +64,50 @@ pub enum Node {
         ctx: TokenContext,
         val: String,
     },
-    List(Vec<Node>),
+    List {
+        ctx: TokenContext,
+        val: Vec<Node>,
+    },
+    /// Defines a variable
     Var {
         ctx: TokenContext,
         ident: String,
-        value: Box<Node>,
+        val: Box<Node>,
     },
-    // Emitted for unknown elements and as a stop
+    /// Emitted for unknown elements and as a stop
     Null,
+}
+
+impl Node {
+    pub fn ctx(&self) -> Option<&TokenContext> {
+        match self {
+            Node::Number { ctx, .. }
+            | Node::String { ctx, .. }
+            | Node::Ident { ctx, .. }
+            | Node::Var { ctx, .. }
+            | Node::List { ctx, .. } => Some(ctx),
+            Node::Null => None,
+        }
+    }
+
+    pub fn node_type(&self, ctx: &mut Context) -> Result<String, LspError> {
+        Ok(match self {
+            Node::Number { .. } => "Number",
+            Node::String { .. } => "String",
+            Node::Ident { .. } => "Ident",
+            // TODO:
+            Node::List { .. } => "[idk]",
+            Node::Var { ident, val, .. } => {
+                let t = match ctx.eval(*val.clone())? {
+                    Some(node) => &node.node_type(ctx)?,
+                    _ => "Null",
+                };
+                return Ok(format!("let {}: {}", ident, t));
+            }
+            Node::Null => "Null",
+        }
+        .into())
+    }
 }
 
 pub struct Parser<'parser> {
@@ -124,7 +173,7 @@ impl<'parser> Parser<'parser> {
         Ok(Node::Var {
             ctx,
             ident,
-            value: Box::new(value),
+            val: Box::new(value),
         })
     }
 
@@ -137,6 +186,7 @@ impl<'parser> Parser<'parser> {
                 ..
             }) => match name.as_str() {
                 "let" => self.variable(),
+                // "lambda" => self.err("`lambda`'s are not yet implemented".into()),
                 _ => self.list(),
             },
             _ => self.list(),
@@ -147,6 +197,10 @@ impl<'parser> Parser<'parser> {
     }
 
     fn list(&mut self) -> Result<Node, LspError> {
+        let ctx = self
+            .prev()
+            .expect("previous token unavailable, this should not have happend")
+            .into();
         let mut children = vec![];
         while self
             .cur()
@@ -156,7 +210,7 @@ impl<'parser> Parser<'parser> {
             children.push(self.parse()?);
         }
 
-        Ok(Node::List(children))
+        Ok(Node::List { ctx, val: children })
     }
 
     fn atom(&mut self) -> Result<Node, LspError> {
@@ -229,5 +283,9 @@ impl<'parser> Parser<'parser> {
 
     fn cur(&self) -> Option<&Token> {
         self.tokens.get(self.pos)
+    }
+
+    fn prev(&self) -> Option<&Token> {
+        self.tokens.get(self.pos - 1)
     }
 }

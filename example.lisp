@@ -32,12 +32,12 @@ fac
 
 ; --- lambdas ---
 ; no op
-; (lambda (num) num) 
-; ; immediate invocation
-; ((lambda (num) num) "hello") 
-; 
-; ; assign lambda to a variable
-;  (let return_name 
-;     (lambda (name) (name)))
-; ; call lambda
-; (return_name 5) 
+(lambda (num) num)
+; immediate invocation
+((lambda (num) num) "hello") 
+
+; assign lambda to a variable
+(let return_name 
+    (lambda (name) (name)))
+; call lambda
+(return_name 5) 

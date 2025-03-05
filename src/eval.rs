@@ -10,21 +10,28 @@ impl Context {
 
     pub fn eval(&mut self, ast: Node) -> Result<Option<Node>, LspError> {
         match ast {
-            Node::Number { .. } | Node::String { .. } | Node::Null | Node::List(_) => Ok(Some(ast)),
+            Node::Number { .. } | Node::String { .. } | Node::Null => Ok(Some(ast)),
+            Node::List { val, ctx } => {
+                let v = Vec::with_capacity(val.len());
+                for node in val {
+                    self.eval(node)?;
+                }
+                Ok(Some(Node::List { ctx, val: v }))
+            }
             Node::Ident { ctx, val } => {
                 let n = if let Some(node) = self.get_var(&val) {
-                    node.clone()
+                    node
                 } else {
                     return Err(LspError::with_context(
                         ctx.into(),
-                        format!("undefined identifier: {}", val),
+                        format!("undefined identifier: `{val}`"),
                     ));
                 };
 
-                self.eval(n)
+                self.eval(n.clone())
             }
-            Node::Var { ident, value, .. } => {
-                self.variables.insert(ident.to_string(), *value.clone());
+            Node::Var { ident, val, .. } => {
+                self.variables.insert(ident.to_string(), *val);
                 Ok(None)
             }
         }
@@ -39,28 +46,30 @@ impl Context {
                 } else {
                     return Err(LspError::with_context(
                         ctx.into(),
-                        format!("undefined identifier: `{}`", val),
+                        format!("undefined identifier: `{val}`"),
                     ));
                 };
 
                 self.eval_string(&n)
             }
             Node::String { val, .. } => Ok(Some(format!("`{val}`"))),
-            Node::List(children) => {
+            Node::List { val, .. } => {
                 let mut buf = String::new();
                 buf.push('(');
-                for i in 0..children.len() {
-                    if let Some(eval_result) = self.eval_string(&children[i])? {
+                for i in 0..val.len() {
+                    if let Some(eval_result) = self.eval_string(&val[i])? {
                         buf.push_str(&eval_result);
                     }
-                    if i < children.len() - 1 {
+                    if i < val.len() - 1 {
                         buf.push_str(", ");
                     }
                 }
                 buf.push(')');
                 Ok(Some(buf))
             }
-            Node::Var { ident, value, .. } => {
+            Node::Var {
+                ident, val: value, ..
+            } => {
                 self.variables.insert(ident.to_string(), *value.clone());
                 Ok(None)
             }
