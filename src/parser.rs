@@ -74,6 +74,12 @@ pub enum Node {
         ident: String,
         val: Box<Node>,
     },
+    /// Defines an anonymous function
+    // Lambda {
+    //     ctx: TokenContext,
+    //     params: Vec<Node>,
+    //     body: Vec<Node>,
+    // },
     /// Emitted for unknown elements and as a stop
     Null,
 }
@@ -94,9 +100,26 @@ impl Node {
         Ok(match self {
             Node::Number { .. } => "Number",
             Node::String { .. } => "String",
-            Node::Ident { .. } => "Ident",
-            // TODO:
-            Node::List { .. } => "[idk]",
+            Node::Ident { val, .. } => {
+                val
+                // if let Some(node) = ctx.variables.get(val) {
+                //     return Ok(node.clone().node_type(ctx).unwrap_or_default());
+                // } else {
+                //     "unkown"
+                // }
+            }
+            Node::List { val, .. } => {
+                let mut s = String::new();
+                s.push('(');
+                s.push_str(
+                    &val.iter()
+                        .flat_map(|n| n.node_type(ctx))
+                        .reduce(|acc, cur| acc + ", " + &cur)
+                        .unwrap_or_default(),
+                );
+                s.push(')');
+                return Ok(s);
+            }
             Node::Var { ident, val, .. } => {
                 let t = match ctx.eval(*val.clone())? {
                     Some(node) => &node.node_type(ctx)?,
@@ -152,14 +175,13 @@ impl<'parser> Parser<'parser> {
     }
 
     fn variable(&mut self) -> Result<Node, LspError> {
+        let ctx = self.cur().map(|n| n.into()).unwrap();
         self.advance(); // skip TokenType::Ident("let")
-        let ctx: TokenContext;
         let ident = if let Some(Token {
             token_type: TokenType::Ident(ident),
             ..
         }) = self.cur()
         {
-            ctx = self.cur().map(|n| n.into()).unwrap();
             ident.clone()
         } else {
             return self.err(format!(

@@ -11,7 +11,7 @@ use lsp_types::{
 use crate::{
     error::LspError,
     lexer::Lexer,
-    parser::{Context, Node},
+    parser::{Context, Node, TokenContext},
 };
 
 pub fn start() -> Result<(), String> {
@@ -138,10 +138,22 @@ fn event_loop(connection: Connection, params: serde_json::Value) -> Result<(), S
                                 let Position { line, character } =
                                     params.text_document_position_params.position;
                                 let (character, line) = (character as usize, line as usize);
-                                let node = "not yet implemented";
+                                // TODO: make this work for non top level nodes
+                                let cur = nodes
+                                    .iter()
+                                    .filter(|n| {
+                                        n.ctx().is_some_and(|ctx| {
+                                            ctx.line == line
+                                                && ctx.start <= character
+                                                && ctx.end >= character
+                                        })
+                                    })
+                                    .last()
+                                    .map(|n| n.node_type(&mut ctx).unwrap_or_default())
+                                    .unwrap_or_default();
                                 let hover_result = lsp_types::Hover {
                                     contents: lsp_types::HoverContents::Scalar(
-                                        lsp_types::MarkedString::String(String::from(node)),
+                                        lsp_types::MarkedString::String(cur),
                                     ),
                                     range: None,
                                 };

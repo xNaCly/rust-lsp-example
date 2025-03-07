@@ -16,6 +16,7 @@
 (let pi 3.1415)
 (let hello_world "Hello World")
 (let fac (0 1 2 6 24 120 720 5040 40320))
+(let empty ())
 
 pi 
 hello_world 
@@ -32,12 +33,12 @@ fac
 
 ; --- lambdas ---
 ; no op
-(lambda (num) num)
-; immediate invocation
-((lambda (num) num) "hello") 
-
-; assign lambda to a variable
-(let return_name 
-    (lambda (name) (name)))
-; call lambda
-(return_name 5) 
+; (lambda (num) num)
+; ; immediate invocation
+; ((lambda (num) num) "hello") 
+; 
+; ; assign lambda to a variable
+; (let return_name 
+;     (lambda (name) (name)))
+; ; call lambda
+; (return_name 5) 
