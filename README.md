@@ -10,12 +10,6 @@ Exemplary lsp implementation for a small lisp like language.
 102910
 3.1415
 "Hello World"
-"
-    Hello World
-    Hello World
-    Hello World
-    Hello World
-"
 
 ; ---- variables ----
 (let pi 3.1415)
@@ -41,20 +35,13 @@ Evaluates to:
 ```text
 [000]: 102910
 [001]: 3.1415
-[002]: `Hello World`
-[003]: `
-    Hello World
-    Hello World
-    Hello World
-    Hello World
-`
-[004]: 3.1415
-[005]: `Hello World`
-[006]: (0, 1, 2, 6, 24, 120, 720, 5040, 40320)
-[007]: (1, 85, 1201, (128, 2))
-[008]: (5, 10)
-[009]: (3.1415, 12345, `Hello World`)
-[010]: (25, (25, (25, (25, 25))))
+[002]: 3.1415
+[003]: `Hello World`
+[004]: (0, 1, 2, 6, 24, 120, 720, 5040, 40320)
+[005]: (1, 85, 1201, (128, ``))
+[006]: (5, 10)
+[007]: (3.1415, 12345, `Hello World`)
+[008]: (25, (25, (25, (25, 25))))
 ```
 
 ## Installation

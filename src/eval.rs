@@ -4,6 +4,11 @@ use crate::parser::Node;
 use crate::Context;
 
 impl Context {
+    pub fn clear(&mut self) {
+        self.variables.clear();
+        self.types_on_line.clear();
+    }
+
     fn get_var(&self, ident: &str) -> Option<&Node> {
         self.variables.get(ident)
     }
@@ -73,7 +78,7 @@ impl Context {
                 self.variables.insert(ident.to_string(), *value.clone());
                 Ok(None)
             }
-            Node::Null => Ok(Some("<nil>".into())),
+            Node::Null => Ok(Some("Null".into())),
         }
     }
 }

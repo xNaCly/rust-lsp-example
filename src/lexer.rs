@@ -115,7 +115,7 @@ impl<'lexer> Lexer<'_> {
                     token_type: TokenType::Ident(string),
                     line: self.line,
                     start: line_start,
-                    end: self.line_pos - 1,
+                    end: self.line_pos,
                 });
             }
             // strings ofc ofc
@@ -124,9 +124,14 @@ impl<'lexer> Lexer<'_> {
                 // skip "
                 self.advance();
                 let start = self.pos;
-                while self.cur().is_some_and(|char| char != '"') {
+                while self.cur().is_some_and(|char| char != '"' && char != '\n') {
                     self.advance();
                 }
+
+                if self.cur().is_some_and(|char| char == '\n') {
+                    return Err(self.err("Unterminated string", line_start));
+                }
+
                 let bytes = self.input.get(start..self.pos).unwrap_or_default().to_vec();
                 let string = String::from_utf8(bytes).map_err(|err| {
                     self.err(format!("Failed to create string: {err}"), line_start)
@@ -170,12 +175,12 @@ impl<'lexer> Lexer<'_> {
     }
 
     fn advance(&mut self) {
+        self.pos += 1;
+        self.line_pos += 1;
         if self.cur().is_some_and(|c| c == '\n') {
             self.line_pos = 0;
             self.line += 1;
         }
-        self.pos += 1;
-        self.line_pos += 1;
     }
 
     fn cur(&self) -> Option<char> {

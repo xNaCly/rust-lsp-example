@@ -4,18 +4,11 @@
 ; ---- atoms ----
 102910
 3.1415 
-"Hello World"
-"
-    Hello World
-    Hello World
-    Hello World
-    Hello World
-"
 
 ; ---- variables ----
-(let pi 3.1415)
+(let pi (let p 3.1415))
 (let hello_world "Hello World")
-(let fac (0 1 2 6 24 120 720 5040 40320))
+(let fac ("" 1 2 6 24 120 720 5040 40320))
 (let empty ())
 
 pi 
@@ -23,7 +16,7 @@ hello_world
 fac
 
 ; ---- lists ----
-(1 85 1201 (128 2))
+(1 85 1201 (128 ""))
 (5 10)
 (pi 12345 hello_world)
 (25 

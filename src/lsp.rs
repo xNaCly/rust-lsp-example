@@ -15,6 +15,7 @@ use crate::{
 };
 
 pub fn start() -> Result<(), String> {
+    eprintln!("Hello from the rust-example-lsp starting point, if you can read this, the language server is attached");
     let (connection, threads) = Connection::stdio();
     let capabilities = serde_json::to_value(&ServerCapabilities {
         hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
@@ -106,13 +107,14 @@ fn update_state(
         })
         .collect::<Vec<_>>();
 
-    let mut ctx = Context::default();
     nodes.append(&mut ast.clone());
     ast.into_iter().for_each(|node| {
+        node.fill_by_line(ctx);
         if let Err(e) = ctx.eval(node) {
             errors.push(e);
         }
     });
+
     Ok(())
 }
 
@@ -138,22 +140,30 @@ fn event_loop(connection: Connection, params: serde_json::Value) -> Result<(), S
                                 let Position { line, character } =
                                     params.text_document_position_params.position;
                                 let (character, line) = (character as usize, line as usize);
-                                // TODO: make this work for non top level nodes
-                                let cur = nodes
-                                    .iter()
-                                    .filter(|n| {
-                                        n.ctx().is_some_and(|ctx| {
-                                            ctx.line == line
-                                                && ctx.start <= character
-                                                && ctx.end >= character
-                                        })
-                                    })
-                                    .last()
-                                    .map(|n| n.node_type(&mut ctx).unwrap_or_default())
-                                    .unwrap_or_default();
+                                let nodes = ctx.types_on_line.get(&line);
+                                let text = match nodes {
+                                    Some(node) => {
+                                        match node
+                                            .clone()
+                                            .iter()
+                                            .filter(|n| {
+                                                n.ctx().is_some_and(|ctx| {
+                                                    ctx.start <= character && ctx.end >= character
+                                                })
+                                            })
+                                            .last()
+                                        {
+                                            Some(last) => last
+                                                .node_type(&mut ctx)
+                                                .unwrap_or_else(|_| "Unknown".into()),
+                                            None => "Unknown".into(),
+                                        }
+                                    }
+                                    _ => "Unknown".into(),
+                                };
                                 let hover_result = lsp_types::Hover {
                                     contents: lsp_types::HoverContents::Scalar(
-                                        lsp_types::MarkedString::String(cur),
+                                        lsp_types::MarkedString::String(text),
                                     ),
                                     range: None,
                                 };
@@ -166,7 +176,7 @@ fn event_loop(connection: Connection, params: serde_json::Value) -> Result<(), S
                                 connection
                                     .sender
                                     .send(Message::Response(resp))
-                                    .map_err(|_| "failed to send definition")?;
+                                    .map_err(|_| "failed to send hover response")?;
                             }
                             Err(err) => panic!("{err:?}"),
                         };

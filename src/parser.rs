@@ -30,22 +30,10 @@ impl From<&TokenContext> for TokenContext {
     }
 }
 
-pub struct LspType {
-    pub node_type: String,
-    pub start: usize,
-    pub end: usize,
-}
-
 #[derive(Default)]
 pub struct Context {
     pub variables: HashMap<String, Node>,
-    pub types_on_line: HashMap<usize, LspType>,
-}
-
-impl Context {
-    pub fn clear(&mut self) {
-        self.variables.clear();
-    }
+    pub types_on_line: HashMap<usize, Vec<Node>>,
 }
 
 #[derive(Debug, Clone)]
@@ -96,17 +84,49 @@ impl Node {
         }
     }
 
+    /// fill_by_line populates [Context::types_on_line] with all contained nodes in [Self]
+    pub fn fill_by_line(&self, ctx: &mut Context) {
+        if let Some(tctx) = self.ctx() {
+            let cloned_self = self.clone();
+            let nodes = match ctx.types_on_line.get(&tctx.line).cloned() {
+                Some(nodes) => {
+                    let mut t = nodes;
+                    t.push(cloned_self);
+                    t
+                }
+                None => vec![cloned_self],
+            };
+            ctx.types_on_line.insert(tctx.line, nodes);
+        }
+
+        match self {
+            // noop, we already handle these above
+            Node::Null | Node::Number { .. } | Node::String { .. } | Node::Ident { .. } => (),
+            Node::List { val, .. } => {
+                for node in val {
+                    node.fill_by_line(ctx);
+                }
+            }
+            Node::Var { val, .. } => {
+                val.fill_by_line(ctx);
+            }
+        }
+    }
+
     pub fn node_type(&self, ctx: &mut Context) -> Result<String, LspError> {
         Ok(match self {
             Node::Number { .. } => "Number",
             Node::String { .. } => "String",
             Node::Ident { val, .. } => {
-                val
-                // if let Some(node) = ctx.variables.get(val) {
-                //     return Ok(node.clone().node_type(ctx).unwrap_or_default());
-                // } else {
-                //     "unkown"
-                // }
+                if let Some(node) = ctx.variables.get(val) {
+                    return Ok(format!(
+                        "let {}: {}",
+                        val,
+                        node.clone().node_type(ctx).unwrap_or_default()
+                    ));
+                } else {
+                    return Ok(format!("Unknown variable `{val}`"));
+                }
             }
             Node::List { val, .. } => {
                 let mut s = String::new();

@@ -67,7 +67,7 @@ fn main() {
         })
         .flatten()
         .enumerate()
-        .map(|(i, r)| format!("[{:0>3}]: {:?}", i, r))
+        .map(|(i, r)| format!("[{:0>3}]: {}", i, r))
         .collect::<Vec<String>>()
         .join("\n");
     if errors.is_empty() {
