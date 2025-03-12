@@ -6,14 +6,16 @@
 3.1415 
 
 ; ---- variables ----
-(let pi (let p 3.1415))
+(let pi 3.1415)
 (let hello_world "Hello World")
 (let fac ("" 1 2 6 24 120 720 5040 40320))
-(let empty ())
+(let empty_list ())
 
-pi 
-hello_world 
+pi
+hello_world
 fac
+empty_list
+
 
 ; ---- lists ----
 (1 85 1201 (128 ""))

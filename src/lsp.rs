@@ -10,8 +10,9 @@ use lsp_types::{
 
 use crate::{
     error::LspError,
+    eval::Context,
     lexer::Lexer,
-    parser::{Context, Node, TokenContext},
+    parser::{Node, TokenContext},
 };
 
 pub fn start() -> Result<(), String> {
@@ -110,11 +111,9 @@ fn update_state(
     nodes.append(&mut ast.clone());
     ast.into_iter().for_each(|node| {
         node.fill_by_line(ctx);
-        if let Err(e) = ctx.eval(node) {
-            errors.push(e);
-        }
+        ctx.eval(node);
     });
-
+    errors.append(&mut ctx.errors);
     Ok(())
 }
 
@@ -155,6 +154,7 @@ fn event_loop(connection: Connection, params: serde_json::Value) -> Result<(), S
                                         {
                                             Some(last) => last
                                                 .node_type(&mut ctx)
+                                                .map_err(|e| errors.push(e))
                                                 .unwrap_or_else(|_| "Unknown".into()),
                                             None => "Unknown".into(),
                                         }

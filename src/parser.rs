@@ -1,7 +1,6 @@
-use std::collections::HashMap;
-
 use crate::{
     error::LspError,
+    eval::Context,
     lexer::{Token, TokenType},
 };
 
@@ -28,12 +27,6 @@ impl From<&TokenContext> for TokenContext {
         } = ctx;
         Self { line, start, end }
     }
-}
-
-#[derive(Default)]
-pub struct Context {
-    pub variables: HashMap<String, Node>,
-    pub types_on_line: HashMap<usize, Vec<Node>>,
 }
 
 #[derive(Debug, Clone)]
@@ -141,7 +134,7 @@ impl Node {
                 return Ok(s);
             }
             Node::Var { ident, val, .. } => {
-                let t = match ctx.eval(*val.clone())? {
+                let t = match ctx.eval(*val.clone()) {
                     Some(node) => &node.node_type(ctx)?,
                     _ => "Null",
                 };

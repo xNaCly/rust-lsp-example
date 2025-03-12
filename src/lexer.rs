@@ -159,7 +159,7 @@ impl<'lexer> Lexer<'_> {
             TokenContext {
                 line: self.line,
                 start,
-                end: self.line_pos,
+                end: self.line_pos - 1,
             },
             message.into(),
         )
@@ -175,12 +175,12 @@ impl<'lexer> Lexer<'_> {
     }
 
     fn advance(&mut self) {
-        self.pos += 1;
-        self.line_pos += 1;
         if self.cur().is_some_and(|c| c == '\n') {
             self.line_pos = 0;
             self.line += 1;
         }
+        self.pos += 1;
+        self.line_pos += 1;
     }
 
     fn cur(&self) -> Option<char> {

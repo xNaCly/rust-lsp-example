@@ -8,8 +8,9 @@ mod parser;
 use std::fs;
 
 use clap::Parser;
+use eval::Context;
 use lexer::{Lexer, Token};
-use parser::{Context, Node};
+use parser::Node;
 
 #[derive(clap::Parser)]
 struct Config {

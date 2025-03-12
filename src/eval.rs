@@ -1,7 +1,15 @@
+use std::collections::HashMap;
+
 use crate::error::LspError;
 use crate::lexer::TokenType;
 use crate::parser::Node;
-use crate::Context;
+
+#[derive(Default)]
+pub struct Context {
+    pub variables: HashMap<String, Node>,
+    pub types_on_line: HashMap<usize, Vec<Node>>,
+    pub errors: Vec<LspError>,
+}
 
 impl Context {
     pub fn clear(&mut self) {
@@ -13,31 +21,38 @@ impl Context {
         self.variables.get(ident)
     }
 
-    pub fn eval(&mut self, ast: Node) -> Result<Option<Node>, LspError> {
+    pub fn eval(&mut self, ast: Node) -> Option<Node> {
         match ast {
-            Node::Number { .. } | Node::String { .. } | Node::Null => Ok(Some(ast)),
+            Node::Number { .. } | Node::String { .. } | Node::Null => Some(ast),
             Node::List { val, ctx } => {
-                let v = Vec::with_capacity(val.len());
-                for node in val {
-                    self.eval(node)?;
+                if val.len() == 0 {
+                    return Some(Node::List { ctx, val: vec![] });
                 }
-                Ok(Some(Node::List { ctx, val: v }))
+                let mut v = Vec::with_capacity(val.len());
+                for i in 0..val.len() {
+                    if let Some(node) = self.eval(val[i].clone()) {
+                        v.push(node);
+                    };
+                }
+                Some(Node::List { ctx, val: v })
             }
             Node::Ident { ctx, val } => {
                 let n = if let Some(node) = self.get_var(&val) {
                     node
                 } else {
-                    return Err(LspError::with_context(
-                        ctx.into(),
-                        format!("undefined identifier: `{val}`"),
+                    self.errors.push(LspError::with_context(
+                        ctx,
+                        format!("Undefined identifier: `{val}`"),
                     ));
+                    return None;
                 };
 
                 self.eval(n.clone())
             }
             Node::Var { ident, val, .. } => {
-                self.variables.insert(ident.to_string(), *val);
-                Ok(None)
+                let evaled = self.eval(*val)?;
+                self.variables.insert(ident.to_string(), evaled);
+                Some(Node::Null)
             }
         }
     }
