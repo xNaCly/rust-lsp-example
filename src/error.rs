@@ -9,8 +9,11 @@ pub struct LspError {
 }
 
 impl LspError {
-    pub fn with_context(ctx: TokenContext, message: String) -> Self {
-        Self { ctx, message }
+    pub fn with_context(ctx: TokenContext, message: impl Into<String>) -> Self {
+        Self {
+            ctx,
+            message: message.into(),
+        }
     }
 }
 

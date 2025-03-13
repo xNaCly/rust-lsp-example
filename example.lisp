@@ -11,8 +11,7 @@
 (let fac ("" 1 2 6 24 120 720 5040 40320))
 (let empty_list ())
 
-pi
-hello_world
+(pi hello_world)
 fac
 empty_list
 
@@ -27,13 +26,18 @@ empty_list
          (25 25))))
 
 ; --- lambdas ---
-; no op
-; (lambda (num) num)
-; ; immediate invocation
-; ((lambda (num) num) "hello") 
-; 
-; ; assign lambda to a variable
-; (let return_name 
-;     (lambda (name) (name)))
-; ; call lambda
-; (return_name 5) 
+; * lambdas are pure, no variables out of the lambdas scope can be mutated
+; * or accessed.
+
+; single argument vs multiple arguments
+(lambda (num) num) (lambda (num num2) (num num2))
+
+; immediate invocation
+((lambda (num) num) "hello")
+
+(
+ ; assign lambda to a variable -> create a function
+ (let return_n_n (lambda (n n1) (n n1))) 
+ ; call lambda
+ 5 12
+)

@@ -59,18 +59,24 @@ fn main() {
         .collect::<Vec<_>>();
     let eval_result = ast
         .into_iter()
-        .flat_map(|node| match ctx.eval_string(&node) {
-            Ok(str) => Some(str),
-            Err(err) => {
-                errors.push(err);
+        .flat_map(|node| {
+            if let Some(eval) = ctx.eval(node) {
+                match ctx.eval_string(&eval) {
+                    Ok(str) => str,
+                    Err(err) => {
+                        errors.push(err);
+                        None
+                    }
+                }
+            } else {
                 None
             }
         })
-        .flatten()
         .enumerate()
         .map(|(i, r)| format!("[{:0>3}]: {}", i, r))
         .collect::<Vec<String>>()
         .join("\n");
+    errors.append(&mut ctx.errors);
     if errors.is_empty() {
         println!("{}", eval_result);
     } else {

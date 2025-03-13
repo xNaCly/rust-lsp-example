@@ -4,6 +4,27 @@ use crate::{
     lexer::{Token, TokenType},
 };
 
+trait TokenExtension {
+    fn is(&self, tt: TokenType) -> bool;
+    fn is_one(&self, tt: &[TokenType]) -> bool;
+}
+
+impl TokenExtension for Option<&Token> {
+    fn is(&self, tt: TokenType) -> bool {
+        match self {
+            Some(Token { token_type, .. }) => token_type == &tt,
+            _ => false,
+        }
+    }
+
+    fn is_one(&self, tt: &[TokenType]) -> bool {
+        match self {
+            Some(Token { token_type, .. }) => tt.iter().any(|t| t == token_type),
+            _ => false,
+        }
+    }
+}
+
 #[derive(Default, Clone, Debug)]
 pub struct TokenContext {
     pub line: usize,
@@ -56,11 +77,11 @@ pub enum Node {
         val: Box<Node>,
     },
     /// Defines an anonymous function
-    // Lambda {
-    //     ctx: TokenContext,
-    //     params: Vec<Node>,
-    //     body: Vec<Node>,
-    // },
+    Lambda {
+        ctx: TokenContext,
+        params: Vec<Node>,
+        body: Vec<Node>,
+    },
     /// Emitted for unknown elements and as a stop
     Null,
 }
@@ -72,7 +93,8 @@ impl Node {
             | Node::String { ctx, .. }
             | Node::Ident { ctx, .. }
             | Node::Var { ctx, .. }
-            | Node::List { ctx, .. } => Some(ctx),
+            | Node::List { ctx, .. }
+            | Node::Lambda { ctx, .. } => Some(ctx),
             Node::Null => None,
         }
     }
@@ -95,6 +117,9 @@ impl Node {
         match self {
             // noop, we already handle these above
             Node::Null | Node::Number { .. } | Node::String { .. } | Node::Ident { .. } => (),
+            Node::Lambda { .. } => {
+                todo!("Node::file_by_line#Node::Lambda")
+            }
             Node::List { val, .. } => {
                 for node in val {
                     node.fill_by_line(ctx);
@@ -110,6 +135,7 @@ impl Node {
         Ok(match self {
             Node::Number { .. } => "Number",
             Node::String { .. } => "String",
+            Node::Lambda { .. } => "λ",
             Node::Ident { val, .. } => {
                 if let Some(node) = ctx.variables.get(val) {
                     return Ok(format!(
@@ -212,6 +238,24 @@ impl<'parser> Parser<'parser> {
         })
     }
 
+    fn lambda(&mut self) -> Result<Node, LspError> {
+        let ctx = self.cur().map(|n| n.into()).unwrap();
+        self.advance();
+        let mut body = vec![];
+        let mut params = vec![];
+        self.consume(TokenType::DelimitorLeft)?;
+        while !self.cur().is(TokenType::DelimitorRight) {
+            params.push(self.atom()?)
+        }
+        self.consume(TokenType::DelimitorRight)?;
+
+        while !self.cur().is(TokenType::DelimitorRight) {
+            body.push(self.parse()?)
+        }
+
+        Ok(Node::Lambda { ctx, params, body })
+    }
+
     fn list_like(&mut self) -> Result<Node, LspError> {
         self.consume(TokenType::DelimitorLeft)?;
 
@@ -221,7 +265,7 @@ impl<'parser> Parser<'parser> {
                 ..
             }) => match name.as_str() {
                 "let" => self.variable(),
-                // "lambda" => self.err("`lambda`'s are not yet implemented".into()),
+                "lambda" => self.lambda(),
                 _ => self.list(),
             },
             _ => self.list(),
@@ -237,10 +281,9 @@ impl<'parser> Parser<'parser> {
             .expect("previous token unavailable, this should not have happend")
             .into();
         let mut children = vec![];
-        while self
+        while !self
             .cur()
-            .map(|e| &e.token_type)
-            .is_some_and(|t| *t != TokenType::DelimitorRight && *t != TokenType::EOF)
+            .is_one(&vec![TokenType::DelimitorRight, TokenType::EOF])
         {
             children.push(self.parse()?);
         }
@@ -254,7 +297,7 @@ impl<'parser> Parser<'parser> {
             None => {
                 return Err(LspError::with_context(
                     TokenContext::default(),
-                    "Unexpected EOF, wanted Atom".into(),
+                    "Unexpected EOF, wanted Atom",
                 ))
             }
         };
