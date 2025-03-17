@@ -99,43 +99,25 @@ impl Node {
         }
     }
 
-    /// fill_by_line populates [Context::types_on_line] with all contained nodes in [Self]
-    pub fn fill_by_line(&self, ctx: &mut Context) {
-        if let Some(tctx) = self.ctx() {
-            let cloned_self = self.clone();
-            let nodes = match ctx.types_on_line.get(&tctx.line).cloned() {
-                Some(nodes) => {
-                    let mut t = nodes;
-                    t.push(cloned_self);
-                    t
-                }
-                None => vec![cloned_self],
-            };
-            ctx.types_on_line.insert(tctx.line, nodes);
-        }
-
-        match self {
-            // noop, we already handle these above
-            Node::Null | Node::Number { .. } | Node::String { .. } | Node::Ident { .. } => (),
-            Node::Lambda { .. } => {
-                todo!("Node::file_by_line#Node::Lambda")
-            }
-            Node::List { val, .. } => {
-                for node in val {
-                    node.fill_by_line(ctx);
-                }
-            }
-            Node::Var { val, .. } => {
-                val.fill_by_line(ctx);
-            }
-        }
-    }
-
     pub fn node_type(&self, ctx: &mut Context) -> Result<String, LspError> {
         Ok(match self {
-            Node::Number { .. } => "Number",
-            Node::String { .. } => "String",
-            Node::Lambda { .. } => "λ",
+            Node::Number { val, .. } => return Ok(format!("{}", val)),
+            Node::String { val, .. } => return Ok(format!("\"{}\"", val)),
+            Node::Lambda { params, .. } => {
+                return Ok(format!(
+                    "λ({})",
+                    params
+                        .iter()
+                        .map(|m| {
+                            match m {
+                                Node::Ident { val, .. } => val.to_owned(),
+                                _ => String::new(),
+                            }
+                        })
+                        .reduce(|acc, cur| acc + ", " + &cur)
+                        .unwrap_or_default(),
+                ))
+            }
             Node::Ident { val, .. } => {
                 if let Some(node) = ctx.variables.get(val) {
                     return Ok(format!(
@@ -214,8 +196,8 @@ impl<'parser> Parser<'parser> {
     }
 
     fn variable(&mut self) -> Result<Node, LspError> {
-        let ctx = self.cur().map(|n| n.into()).unwrap();
         self.advance(); // skip TokenType::Ident("let")
+        let ctx = self.cur().map(|n| n.into()).unwrap();
         let ident = if let Some(Token {
             token_type: TokenType::Ident(ident),
             ..
@@ -225,7 +207,9 @@ impl<'parser> Parser<'parser> {
         } else {
             return self.err(format!(
                 "Unexpected {:?}, wanted an Identifier as the variable name",
-                self.cur().map(|e| &e.token_type)
+                self.cur()
+                    .map(|e| &e.token_type)
+                    .unwrap_or_else(|| &TokenType::EOF)
             ));
         };
         // skipping the ident

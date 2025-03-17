@@ -7,14 +7,13 @@ use crate::parser::Node;
 #[derive(Default, Debug)]
 pub struct Context {
     pub variables: HashMap<String, Node>,
-    pub types_on_line: HashMap<usize, Vec<Node>>,
     pub errors: Vec<LspError>,
 }
 
 impl Context {
     pub fn clear(&mut self) {
         self.variables.clear();
-        self.types_on_line.clear();
+        self.errors.clear();
     }
 
     fn get_var(&self, ident: &str) -> Option<&Node> {

@@ -9,11 +9,10 @@
 (let pi 3.1415)
 (let hello_world "Hello World")
 (let fac ("" 1 2 6 24 120 720 5040 40320))
-(let empty_list ())
 
 (pi hello_world)
 fac
-empty_list
+((let empty_list ()))
 
 
 ; ---- lists ----

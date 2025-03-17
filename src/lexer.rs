@@ -95,7 +95,7 @@ impl<'lexer> Lexer<'_> {
                     token_type: TokenType::Number(number),
                     line: self.line,
                     start: line_start,
-                    end: self.line_pos,
+                    end: self.line_pos - 2,
                 });
             }
             'a'..='z' | 'A'..='Z' => {
@@ -115,12 +115,12 @@ impl<'lexer> Lexer<'_> {
                     token_type: TokenType::Ident(string),
                     line: self.line,
                     start: line_start,
-                    end: self.line_pos,
+                    end: self.line_pos - 2,
                 });
             }
             // strings ofc ofc
             '"' => {
-                let line_start = self.line_pos;
+                let line_start = self.line_pos - 1;
                 // skip "
                 self.advance();
                 let start = self.pos;
@@ -140,7 +140,7 @@ impl<'lexer> Lexer<'_> {
                     token_type: TokenType::String(string),
                     line: self.line,
                     start: line_start,
-                    end: self.line_pos,
+                    end: self.line_pos - 1,
                 });
                 if self.cur().is_none() {
                     Err(self.err("Unterminated string", line_start))
